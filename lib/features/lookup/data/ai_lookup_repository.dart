@@ -8,8 +8,8 @@ import '../domain/lookup_result.dart';
 
 part 'ai_lookup_repository.g.dart';
 
-const _quickModel = 'gemini-2.5-flash-lite';
-const _deepModel = 'gemini-2.5-flash';
+const _quickModel = 'gemini-3.5-flash-lite';
+const _deepModel = 'gemini-3.5-flash';
 const _maxContextSnippetChars = 1500;
 
 const _quickLookupSystemPrompt =
