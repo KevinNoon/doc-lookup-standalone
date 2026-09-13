@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
@@ -10,6 +11,7 @@ import '../../groups_tags/domain/group.dart';
 import '../../lookup/data/saved_lookup_repository.dart';
 import '../../lookup/domain/saved_lookup.dart';
 import '../data/saved_lookups_markdown_export.dart';
+import '../data/saved_lookups_markdown_import.dart';
 import '../domain/word_group.dart';
 import 'saved_lookup_detail_sheet.dart';
 
@@ -28,6 +30,83 @@ class _SavedLookupsScreenState extends ConsumerState<SavedLookupsScreen> {
   String? _selectedGroupId;
   _LookupSort _sort = _LookupSort.recent;
   bool _isExporting = false;
+  bool _isImporting = false;
+
+  /// Imports lookups from a Markdown file written by [_exportMarkdown] (from
+  /// this app or its cloud-synced sibling) — lets someone restore or migrate
+  /// their saved lookups into a fresh, local-only install. Each parsed
+  /// occurrence becomes a new saved lookup, same as any other save; groups
+  /// are matched by name to existing local groups, creating one if no match
+  /// exists.
+  Future<void> _importMarkdown() async {
+    setState(() => _isImporting = true);
+    try {
+      final picked = await FilePicker.pickFile(type: FileType.custom, allowedExtensions: ['md']);
+      final path = picked?.path;
+      if (path == null) return;
+
+      final content = await File(path).readAsString();
+      final parsed = parseSavedLookupsMarkdown(content);
+      if (parsed.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No lookups found in that file.')),
+          );
+        }
+        return;
+      }
+
+      final groupRepo = await ref.read(groupRepositoryProvider.future);
+      final lookupRepo = await ref.read(savedLookupRepositoryProvider.future);
+      final existingGroups = ref.read(userGroupsProvider).value ?? const <Group>[];
+      final groupIdByName = <String, String>{
+        for (final g in existingGroups) g.name.toLowerCase(): g.id,
+      };
+
+      for (final item in parsed) {
+        final groupIds = <String>[];
+        for (final name in item.groupNames) {
+          final key = name.toLowerCase();
+          final existingId = groupIdByName[key];
+          if (existingId != null) {
+            groupIds.add(existingId);
+            continue;
+          }
+          final created = await groupRepo.createGroup(name: name, colorHex: '#009688');
+          groupIdByName[key] = created.id;
+          groupIds.add(created.id);
+        }
+        await lookupRepo.saveLookup(
+          SavedLookup(
+            id: '',
+            word: item.word,
+            documentId: null,
+            documentTitle: item.documentTitle,
+            page: item.page,
+            contextSnippet: '',
+            quickResult: item.quickResult,
+            deepDiveResult: item.deepDiveResult,
+            translation: item.translation,
+            groupIds: groupIds,
+            tags: item.tags,
+            createdAt: null,
+          ),
+        );
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Imported ${parsed.length} lookup${parsed.length == 1 ? '' : 's'}.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Import failed: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isImporting = false);
+    }
+  }
 
   /// Exports every saved lookup (not just what's currently filtered/visible)
   /// as a single Markdown file via the system "Save As" dialog — uses
@@ -87,7 +166,7 @@ class _SavedLookupsScreenState extends ConsumerState<SavedLookupsScreen> {
   }
 
   List<WordGroup> _sorted(List<WordGroup> groups) {
-    if (_sort == _LookupSort.recent) return groups; // already newest-first from the Firestore query.
+    if (_sort == _LookupSort.recent) return groups; // already newest-first from the database query.
     final sorted = [...groups];
     sorted.sort((a, b) => a.word.toLowerCase().compareTo(b.word.toLowerCase()));
     return sorted;
@@ -102,6 +181,17 @@ class _SavedLookupsScreenState extends ConsumerState<SavedLookupsScreen> {
       appBar: AppBar(
         title: const Text('Saved lookups'),
         actions: [
+          IconButton(
+            icon: _isImporting
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.upload_outlined),
+            tooltip: 'Import from Markdown',
+            onPressed: _isImporting ? null : _importMarkdown,
+          ),
           IconButton(
             icon: _isExporting
                 ? const SizedBox(
