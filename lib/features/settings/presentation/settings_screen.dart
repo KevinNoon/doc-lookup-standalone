@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../data/settings_repository.dart';
+
+final _apiKeyPageUrl = Uri.parse('https://aistudio.google.com/apikey');
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -20,6 +23,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  Future<void> _openApiKeyPage() async {
+    final launched = await launchUrl(_apiKeyPageUrl, mode: LaunchMode.externalApplication);
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open the browser — visit aistudio.google.com/apikey manually.')),
+      );
+    }
   }
 
   Future<void> _save() async {
@@ -66,19 +78,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             const SizedBox(height: 12),
             InkWell(
-              onTap: () => showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Get a free API key'),
-                  content: const Text(
-                    'Visit aistudio.google.com/apikey, sign in with any Google account, '
-                    'and click "Create API key" — no card required. Paste the key here.',
-                  ),
-                  actions: [
-                    TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK')),
-                  ],
-                ),
-              ),
+              onTap: _openApiKeyPage,
               child: Text(
                 'aistudio.google.com/apikey',
                 style: TextStyle(color: Theme.of(context).colorScheme.primary, decoration: TextDecoration.underline),
