@@ -29,6 +29,11 @@ jobs:
       # build time. web/flutter_bootstrap.js and web/custom_sw.js only use
       # relative paths, so they don't need any change for this.
       - run: flutter build web --release --base-href /doc-lookup-standalone/
+      # Stamps the service worker's cache name with this commit's SHA so
+      # every deploy gets a distinct cache automatically — see the comment
+      # on CACHE_NAME in web/custom_sw.js for why this can't be a
+      # hand-bumped version number.
+      - run: sed -i "s/__BUILD_ID__/${{ github.sha }}/" build/web/custom_sw.js
       - uses: actions/upload-pages-artifact@v3
         with:
           path: build/web

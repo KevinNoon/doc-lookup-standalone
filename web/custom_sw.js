@@ -7,11 +7,18 @@
 // ("How do I configure a service worker?"). This one is registered
 // separately from web/flutter_bootstrap.js.
 //
-// Bump CACHE_NAME on every release that changes web assets — that's what
-// forces old caches to be dropped and fresh copies of main.dart.js etc. to
-// be fetched. Forgetting to bump it means returning users keep the old
-// build until the browser evicts the cache on its own.
-const CACHE_NAME = 'doc-lookup-shell-v6';
+// __BUILD_ID__ is stamped with the deploying commit's SHA by the GitHub
+// Pages workflow (.github/workflows/deploy-pages.yml) so every deploy gets
+// a distinct cache automatically — that's what forces old caches to be
+// dropped and fresh copies of main.dart.js etc. to be fetched. Relying on
+// a hand-bumped version number here was tried first and quietly broke
+// twice (a Dart-level fix would ship, but browsers kept serving the old
+// cached main.dart.js because nobody remembered to bump this string).
+// For local `flutter build web` runs outside CI, this stays literally
+// "doc-lookup-shell-__BUILD_ID__" — fine for local testing, but bump it by
+// hand (or just clear site data) if you need a local build to actually
+// invalidate a previous local build's cache.
+const CACHE_NAME = 'doc-lookup-shell-__BUILD_ID__';
 
 // The few files guaranteed to exist and small enough to fetch eagerly at
 // install time, so the very first offline visit after install still has an
