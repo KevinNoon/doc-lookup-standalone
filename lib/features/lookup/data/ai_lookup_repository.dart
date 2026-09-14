@@ -12,6 +12,13 @@ const _quickModel = 'gemini-3.5-flash-lite';
 const _deepModel = 'gemini-3.5-flash';
 const _maxContextSnippetChars = 1500;
 
+// Gemini's stronger models (used for deep dive) return these fairly often
+// under normal load — they're transient server-side overload/rate-limit
+// responses, not request errors, so worth a couple of automatic retries
+// before surfacing anything to the user.
+const _maxRetries = 2;
+const _retryableStatusCodes = {429, 500, 502, 503, 504};
+
 const _quickLookupSystemPrompt =
     'You are a dictionary lookup assistant embedded in a document reader. '
     'Given a selected word/phrase and the surrounding context, respond with a short, '
@@ -111,25 +118,34 @@ class AiLookupRepository {
     required Map<String, dynamic> schema,
   }) async {
     final apiKey = await _apiKey();
-    final response = await http.post(
-      Uri.parse('https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent'),
-      headers: {'content-type': 'application/json', 'x-goog-api-key': apiKey},
-      body: jsonEncode({
-        'contents': [
-          {
-            'parts': [
-              {'text': userContent},
-            ],
-          },
-        ],
-        'systemInstruction': {
+    final uri = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent');
+    final body = jsonEncode({
+      'contents': [
+        {
           'parts': [
-            {'text': systemPrompt},
+            {'text': userContent},
           ],
         },
-        'generationConfig': {'responseMimeType': 'application/json', 'responseSchema': schema},
-      }),
-    );
+      ],
+      'systemInstruction': {
+        'parts': [
+          {'text': systemPrompt},
+        ],
+      },
+      'generationConfig': {'responseMimeType': 'application/json', 'responseSchema': schema},
+    });
+
+    late http.Response response;
+    for (var attempt = 0; ; attempt++) {
+      response = await http.post(
+        uri,
+        headers: {'content-type': 'application/json', 'x-goog-api-key': apiKey},
+        body: body,
+      );
+      if (response.statusCode == 200) break;
+      if (attempt >= _maxRetries || !_retryableStatusCodes.contains(response.statusCode)) break;
+      await Future.delayed(Duration(milliseconds: 500 * (1 << attempt)));
+    }
     if (response.statusCode != 200) {
       throw StateError('Gemini request failed (${response.statusCode}): ${response.body}');
     }
