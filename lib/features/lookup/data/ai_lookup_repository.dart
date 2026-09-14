@@ -111,14 +111,20 @@ class AiLookupRepository {
     return key;
   }
 
+  /// [fallbackModel], if given, is tried (with its own retry budget) when
+  /// [model] exhausts its retries and is still failing with a retryable
+  /// status — deep dive's `gemini-3.5-flash` can be under sustained enough
+  /// demand that a few quick retries against the *same* model never
+  /// succeed, so falling back to the lite model (already reliable for
+  /// quick lookups) trades some depth for actually returning something.
   Future<Map<String, dynamic>> _generate({
     required String model,
+    String? fallbackModel,
     required String systemPrompt,
     required String userContent,
     required Map<String, dynamic> schema,
   }) async {
     final apiKey = await _apiKey();
-    final uri = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent');
     final body = jsonEncode({
       'contents': [
         {
@@ -135,16 +141,25 @@ class AiLookupRepository {
       'generationConfig': {'responseMimeType': 'application/json', 'responseSchema': schema},
     });
 
-    late http.Response response;
-    for (var attempt = 0; ; attempt++) {
-      response = await http.post(
-        uri,
-        headers: {'content-type': 'application/json', 'x-goog-api-key': apiKey},
-        body: body,
-      );
-      if (response.statusCode == 200) break;
-      if (attempt >= _maxRetries || !_retryableStatusCodes.contains(response.statusCode)) break;
-      await Future.delayed(Duration(milliseconds: 500 * (1 << attempt)));
+    Future<http.Response> attempt(String modelName) async {
+      final uri = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent');
+      late http.Response response;
+      for (var attempt = 0; ; attempt++) {
+        response = await http.post(
+          uri,
+          headers: {'content-type': 'application/json', 'x-goog-api-key': apiKey},
+          body: body,
+        );
+        if (response.statusCode == 200) break;
+        if (attempt >= _maxRetries || !_retryableStatusCodes.contains(response.statusCode)) break;
+        await Future.delayed(Duration(milliseconds: 500 * (1 << attempt)));
+      }
+      return response;
+    }
+
+    var response = await attempt(model);
+    if (response.statusCode != 200 && fallbackModel != null && _retryableStatusCodes.contains(response.statusCode)) {
+      response = await attempt(fallbackModel);
     }
     if (response.statusCode != 200) {
       throw StateError('Gemini request failed (${response.statusCode}): ${response.body}');
@@ -187,6 +202,7 @@ class AiLookupRepository {
     ].join('\n\n');
     final json = await _generate(
       model: _deepModel,
+      fallbackModel: _quickModel,
       systemPrompt: _deepDiveSystemPrompt,
       userContent: userContent,
       schema: _deepDiveSchema,
