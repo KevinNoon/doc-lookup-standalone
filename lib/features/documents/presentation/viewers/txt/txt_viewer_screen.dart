@@ -1,4 +1,5 @@
-import 'dart:io';
+import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
@@ -9,19 +10,19 @@ class TxtViewerScreen extends StatelessWidget {
     super.key,
     required this.documentId,
     required this.title,
-    required this.filePath,
+    required this.bytes,
   });
 
   final String documentId;
   final String title;
-  final String filePath;
+  final Uint8List bytes;
 
   @override
   Widget build(BuildContext context) {
     return PaginatedTextViewerScreen(
       documentId: documentId,
       title: title,
-      loadText: () => File(filePath).readAsString(),
+      loadText: () async => utf8.decode(bytes),
     );
   }
 }

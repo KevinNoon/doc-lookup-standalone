@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
@@ -10,12 +10,12 @@ class EpubViewerScreen extends StatelessWidget {
     super.key,
     required this.documentId,
     required this.title,
-    required this.filePath,
+    required this.bytes,
   });
 
   final String documentId;
   final String title;
-  final String filePath;
+  final Uint8List bytes;
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +25,6 @@ class EpubViewerScreen extends StatelessWidget {
       pageLabel: 'Chapter',
       errorPrefix: 'Could not open this EPUB',
       loadPages: () async {
-        final bytes = await File(filePath).readAsBytes();
         final chapters = await parseEpubChapters(bytes);
         return chapters.map((c) => c.htmlContent).toList();
       },

@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
@@ -10,12 +10,12 @@ class DocxViewerScreen extends StatelessWidget {
     super.key,
     required this.documentId,
     required this.title,
-    required this.filePath,
+    required this.bytes,
   });
 
   final String documentId;
   final String title;
-  final String filePath;
+  final Uint8List bytes;
 
   @override
   Widget build(BuildContext context) {
@@ -23,10 +23,7 @@ class DocxViewerScreen extends StatelessWidget {
       documentId: documentId,
       title: title,
       errorPrefix: 'Could not open this DOCX',
-      loadPages: () async {
-        final bytes = await File(filePath).readAsBytes();
-        return parseDocxPages(bytes);
-      },
+      loadPages: () async => parseDocxPages(bytes),
     );
   }
 }

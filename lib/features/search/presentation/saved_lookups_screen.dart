@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
@@ -42,10 +41,9 @@ class _SavedLookupsScreenState extends ConsumerState<SavedLookupsScreen> {
     setState(() => _isImporting = true);
     try {
       final picked = await FilePicker.pickFile(type: FileType.custom, allowedExtensions: ['md']);
-      final path = picked?.path;
-      if (path == null) return;
+      if (picked == null) return;
 
-      final content = await File(path).readAsString();
+      final content = utf8.decode(await picked.readAsBytes());
       final parsed = parseSavedLookupsMarkdown(content);
       if (parsed.isEmpty) {
         if (mounted) {

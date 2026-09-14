@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,12 +17,12 @@ class PdfViewerScreen extends ConsumerStatefulWidget {
     super.key,
     required this.documentId,
     required this.title,
-    required this.filePath,
+    required this.bytes,
   });
 
   final String documentId;
   final String title;
-  final String filePath;
+  final Uint8List bytes;
 
   @override
   ConsumerState<PdfViewerScreen> createState() => _PdfViewerScreenState();
@@ -101,7 +101,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> {
 
   Future<String> _extractPageContext() async {
     try {
-      _textDocument ??= PdfDocument(inputBytes: await File(widget.filePath).readAsBytes());
+      _textDocument ??= PdfDocument(inputBytes: widget.bytes);
       final pageIndex = _controller.pageNumber - 1;
       return PdfTextExtractor(_textDocument!).extractText(startPageIndex: pageIndex, endPageIndex: pageIndex);
     } catch (_) {
@@ -153,8 +153,8 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> {
               )
             : null,
       ),
-      body: SfPdfViewer.file(
-        File(widget.filePath),
+      body: SfPdfViewer.memory(
+        widget.bytes,
         key: _pdfViewerKey,
         controller: _controller,
         canShowTextSelectionMenu: false,

@@ -46,9 +46,9 @@ class _HighlightsScreenState extends ConsumerState<HighlightsScreen> {
     setState(() => _openingHighlightId = highlight.id);
     try {
       final repo = await ref.read(documentRepositoryProvider.future);
-      final filePath = await repo.ensureLocalFile(document);
+      final bytes = await repo.documentBytes(document);
       if (mounted) {
-        context.push('/document', extra: (document.id, document.title, filePath, document.format));
+        context.push('/document', extra: (document.id, document.title, bytes, document.format));
       }
     } catch (e) {
       if (mounted) {

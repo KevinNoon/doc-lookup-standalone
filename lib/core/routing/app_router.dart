@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -28,17 +30,17 @@ GoRouter appRouter(Ref ref) {
       GoRoute(
         path: '/document',
         builder: (context, state) {
-          final args = state.extra! as (String documentId, String title, String filePath, DocumentFormat format);
-          final (documentId, title, filePath, format) = args;
+          final args = state.extra! as (String documentId, String title, Uint8List bytes, DocumentFormat format);
+          final (documentId, title, bytes, format) = args;
           return switch (format) {
             DocumentFormat.epub =>
-              EpubViewerScreen(documentId: documentId, title: title, filePath: filePath),
+              EpubViewerScreen(documentId: documentId, title: title, bytes: bytes),
             DocumentFormat.txt =>
-              TxtViewerScreen(documentId: documentId, title: title, filePath: filePath),
+              TxtViewerScreen(documentId: documentId, title: title, bytes: bytes),
             DocumentFormat.docx =>
-              DocxViewerScreen(documentId: documentId, title: title, filePath: filePath),
+              DocxViewerScreen(documentId: documentId, title: title, bytes: bytes),
             DocumentFormat.pdf =>
-              PdfViewerScreen(documentId: documentId, title: title, filePath: filePath),
+              PdfViewerScreen(documentId: documentId, title: title, bytes: bytes),
           };
         },
       ),
